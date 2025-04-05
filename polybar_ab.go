@@ -30,7 +30,10 @@ var flagsimple bool
 var flagthr int
 var flagversion bool
 var flagtimeto bool
+var flagBatIndex int
 
+
+var i int
 var version string
 
 var conn *dbus.Conn
@@ -72,66 +75,65 @@ func main() {
 		fmt.Printf("       flagversion=%v\n", flagversion)
 	}
 
-	for {
+	{
 		waitBat()
 		batteries, err := battery.GetAll()
 		if err != nil {
-			if flagdebug {
-				fmt.Println("Could not get battery info!")
-				fmt.Printf("%+v\n", err)
-				//return
-			}
+			fmt.Printf(" Error getting batteries info: %v\n", err)
 		}
-		for i, battery := range batteries {
-			if flagdebug {
-				fmt.Printf("%s:\n", battery)
-				fmt.Printf("Bat%d:\n", i)
-				fmt.Printf("  state: %v %v\n", battery.State, battery.State)
-			}
-
-			switch battery.State.Raw {
-			case 0:
-				state = "Not charging"
-			case 1:
-				state = "Empty"
-			case 2:
-				state = "Full"
-			case 3:
-				state = "Charging"
-			case 4:
-				state = "Discharging"
-			default:
-				state = "Unknown"
-			}
-
-			percent := battery.Current / (battery.Full * 0.01)
-			if percent > 100.0 {
-				percent = 100.0
-			} else if battery.Full == 0 { // Workaround. Sometime sysfs don't know full charge level. Dunno why
-				percent = 100
-			}
-
-			if percent < float64(flagthr) && battery.State.Raw != 3 {
-				notify_send("Battery low!", fmt.Sprintf("Charge percent: %.2f\nState: %s", percent, state), 1)
-			}
-
-			if flagdebug {
-				fmt.Printf("  Charge percent: %.2f \n", percent)
-				fmt.Printf("  Sleep sec: %v \n", 10)
-				fmt.Printf("  Time: %v \n", time.Now())
-			}
-
-			if flagsimple {
-				fmt.Printf("%.2f\n", percent)
-			}
-			if flagpolybar {
-				polybar_out(percent, battery.State.Raw, conn)
-			}
-			if flagonce {
-				os.Exit(0)
-			}
-			time.Sleep(1 * time.Second)
+		if flagBatIndex >= len(batteries) || flagBatIndex < 0 {
+		fmt.Fprintf(os.Stderr, "Error: Battery index %d is out of range. %d battery(ies) detected.\n", flagBatIndex, len(batteries))
+		os.Exit(1)
 		}
+		battery := batteries[flagBatIndex]
+		i = 0
+		if flagdebug {
+			fmt.Printf("Bat%d:\n", i)
+			fmt.Printf("  state: %v %v\n", battery.State, battery.State)
+		}
+
+		switch battery.State.Raw {
+		case 0:
+			state = "Not charging"
+		case 1:
+			state = "Empty"
+		case 2:
+			state = "Full"
+		case 3:
+			state = "Charging"
+		case 4:
+			state = "Discharging"
+		default:
+			state = "Unknown"
+		}
+
+		percent := battery.Current / (battery.Full * 0.01)
+		if percent > 100.0 {
+			percent = 100.0
+		} else if battery.Full == 0 {
+			percent = 100
+		}
+
+		if percent < float64(flagthr) && battery.State.Raw != 3 {
+			notify_send("Battery low!", fmt.Sprintf("Charge percent: %.0f\nState: %s", percent, state), 1)
+		}
+
+		if flagdebug {
+			fmt.Printf("  Charge percent: %.0f \n", percent)
+			fmt.Printf("  Sleep sec: %v \n", 10)
+			fmt.Printf("  Time: %v \n", time.Now())
+		}
+
+		if flagsimple {
+			fmt.Printf("%.0f\n", percent)
+		}
+		if flagpolybar {
+			polybar_out(percent, battery.State.Raw, conn)
+		}
+		if flagonce {
+			os.Exit(0)
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -152,6 +154,7 @@ func flag_init() {
 	flag.IntVar(&flagfont, "font", 1, "Set font numbler for polybar output")
 	flag.BoolVar(&flagversion, "version", false, "Print version info and exit")
 	flag.BoolVar(&flagtimeto, "time-to", false, "Print \"time to full\" or \"time to empty\"")
+	flag.IntVar(&flagBatIndex, "bat-index", 0, "Specify battery index to monitor (e.g., 0 or 1)")
 
 	flag.Parse()
 
@@ -207,16 +210,16 @@ func polybar_out(val float64, state battery.AgnosticState, conn *dbus.Conn) {
 	// Not charging
 	case 0:
 		level := val / 10
-		fmt.Printf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.2f%%\n", flagfont, "00DDFF", bat_icons[int(level)], color_default, val)
+		fmt.Printf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.0f%%\n", flagfont, "00DDFF", bat_icons[int(level)], color_default, val)
 		if flagdebug {
 			fmt.Printf("Polybar discharge pict: %v\n", int(level))
 		}
 	// Empty
 	case 1:
-		fmt.Printf("%%{T%d}%%{F#%v} %v %%{F#%v}%%{T-}%.2f%%\n", flagfont, color, bat_icons[0], color_default, val)
+		fmt.Printf("%%{T%d}%%{F#%v} %v %%{F#%v}%%{T-}%.0f%%\n", flagfont, color, bat_icons[0], color_default, val)
 	// Full
 	case 2:
-		fmt.Printf("%%{T%d}%%{F#%v} %v %%{F#%v}%%{T-}%.2f%%\n", flagfont, color, bat_icons[9], color_default, val)
+		fmt.Printf("%%{T%d}%%{F#%v} %v %%{F#%v}%%{T-}%.0f%%\n", flagfont, color, bat_icons[9], color_default, val)
 	// Unknown, Charging
 	case 3:
 		timeToFull, err := getBatteryTimeAttribute(conn, "TimeToFull")
@@ -224,15 +227,15 @@ func polybar_out(val float64, state battery.AgnosticState, conn *dbus.Conn) {
 			fmt.Printf(" Error getting battery time attribute: %v\n", err)
 		}
 
-		for i := 0; i < 10; i++ {
-			// Add the time to full charge to each line of output
-			fmt.Printf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.2f%% %s\n", flagfont, color, bat_icons[i], color_default, val, timeToFull)
+		 for i := 0; i < 10; i++ {
+			//Add the time to full charge to each line of output
+			fmt.Printf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.0f%% %s\n", flagfont, color, bat_icons[i], color_default, val, timeToFull)
 			time.Sleep(100 * time.Millisecond)
 		}
 	// Discharging
 	case 4:
 		level := val / 10
-		output := fmt.Sprintf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.2f%%", flagfont, color, bat_icons[int(level)], color_default, val)
+		output := fmt.Sprintf("%%{T%d}%%{F#%v} %s %%{F#%v}%%{T-}%.0f%%", flagfont, color, bat_icons[int(level)], color_default, val)
 		if flagdebug {
 			output += fmt.Sprintf("\nPolybar discharge pict: %v", int(level))
 		}
@@ -327,8 +330,8 @@ func getBatteryTimeAttribute(conn *dbus.Conn, prop string) (string, error) {
 
 	var dbusProp string
 	switch prop {
-	case "TimeToFull":
-		dbusProp = "TimeToFull"
+	//case "TimeToFull":
+	//	dbusProp = "TimeToFull"
 	case "TimeToEmpty":
 		dbusProp = "TimeToEmpty"
 	default:
@@ -346,7 +349,7 @@ func getBatteryTimeAttribute(conn *dbus.Conn, prop string) (string, error) {
 		seconds := value.(int64)
 		formattedTime := formatSeconds(seconds)
 		result := fmt.Sprintf("%s: %v", dbusProp, formattedTime)
-		result = strings.Replace(result, "TimeToFull", "TTF", -1)
+		//result = strings.Replace(result, "TimeToFull", "TTF", -1)
 		result = strings.Replace(result, "TimeToEmpty", "TTE", -1)
 		return result, nil
 	}
