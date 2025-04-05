@@ -9,8 +9,9 @@ package main
 // #include <stdio.h>
 // #include <errno.h>
 // #include <libnotify/notify.h>
-import "C"
+import "C";
 import (
+	
 	"flag"
 	"fmt"
 	"os"
@@ -31,6 +32,7 @@ var flagthr int
 var flagversion bool
 var flagtimeto bool
 var flagBatIndex int
+var flagAll bool
 
 
 var i int
@@ -45,6 +47,62 @@ func main() {
 		fmt.Printf("Version: %s\n", version)
 		os.Exit(0)
 	}
+
+
+	if flagAll {
+		batteries, err := battery.GetAll()
+			if err != nil {
+				fmt.Printf(" Error getting batteries info: %v\n", err)
+				os.Exit(1)
+			}
+
+		var totalCurrent, totalFull float64
+		stateCount := make(map[battery.State]int)
+
+		for _, bat := range batteries {
+			if bat.Full > 0 {
+				totalCurrent += bat.Current
+				totalFull += bat.Full
+			}
+			stateCount[bat.State]++
+		}
+
+		percent := 100.0
+		if totalFull > 0 {
+			percent = totalCurrent / (totalFull * 0.01)
+			if percent > 100.0 {
+				percent = 100.0
+			}
+		}
+
+		state := "Mixed"
+		if len(stateCount) == 1 {
+			for s := range stateCount {
+				state = s.String()
+			}
+		}
+
+		if flagdebug {
+			fmt.Printf("Total charge: %.2f%%, State: %s\n", percent, state)
+		}
+
+		if flagsimple {
+			fmt.Printf("%.0f\n", percent)
+		}
+
+		if flagpolybar {
+			polybar_out(percent, battery.Discharging, conn) // Use generic state
+		}
+
+		if percent < float64(flagthr) && state != "Charging" {
+			notify_send("Battery low!", fmt.Sprintf("Total charge: %.0f%%\nState: %s", percent, state), 1)
+		}
+
+		if flagonce {
+			os.Exit(0)
+		}
+		time.Sleep(1 * time.Second)
+	}	
 
 	// Init notifications
 	notify_init()
@@ -155,6 +213,8 @@ func flag_init() {
 	flag.BoolVar(&flagversion, "version", false, "Print version info and exit")
 	flag.BoolVar(&flagtimeto, "time-to", false, "Print \"time to full\" or \"time to empty\"")
 	flag.IntVar(&flagBatIndex, "bat-index", 0, "Specify battery index to monitor (e.g., 0 or 1)")
+	flag.BoolVar(&flagAll, "all", false, "Monitor and display total charge of all batteries")
+
 
 	flag.Parse()
 
