@@ -49,6 +49,25 @@ func main() {
 	}
 
 
+
+	// Init notifications
+	notify_init()
+
+	// DBus init
+	var err error
+	conn, err = dbus.SystemBus()
+	if err != nil {
+		fmt.Println("Error initializing dbus connection:", err)
+		os.Exit(1)
+	}
+	defer conn.Close()
+
+	if flagdebug {
+		fmt.Println("DBus connection established successfully.")
+	}
+	// End
+
+
 	if flagAll {
 		batteries, err := battery.GetAll()
 			if err != nil {
@@ -122,23 +141,6 @@ func main() {
 		}
 		time.Sleep(1 * time.Second)
 	}	
-
-	// Init notifications
-	notify_init()
-
-	// DBus init
-	var err error
-	conn, err = dbus.SystemBus()
-	if err != nil {
-		fmt.Println("Error initializing dbus connection:", err)
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	if flagdebug {
-		fmt.Println("DBus connection established successfully.")
-	}
-	// End
 
 	var state string
 
@@ -301,7 +303,7 @@ func polybar_out(val float64, state battery.AgnosticState, conn *dbus.Conn) {
 		fmt.Printf("%%{T%d}%%{F#%v} %v %%{F#%v}%%{T-}%.0f%%\n", flagfont, color, bat_icons[9], color_default, val)
 	// Unknown, Charging
 	case 3:
-		timeToFull, err := getBatteryTimeAttribute(conn, "TimeToFull")
+		timeToFull, err := getBatteryTimeAttribute(conn, "timeToFull")
 		if err != nil {
 			fmt.Printf(" Error getting battery time attribute: %v\n", err)
 		}
@@ -409,8 +411,8 @@ func getBatteryTimeAttribute(conn *dbus.Conn, prop string) (string, error) {
 
 	var dbusProp string
 	switch prop {
-	//case "TimeToFull":
-	//	dbusProp = "TimeToFull"
+	case "timeToFull":
+		dbusProp = "TimeToFull"
 	case "TimeToEmpty":
 		dbusProp = "TimeToEmpty"
 	default:
@@ -428,7 +430,7 @@ func getBatteryTimeAttribute(conn *dbus.Conn, prop string) (string, error) {
 		seconds := value.(int64)
 		formattedTime := formatSeconds(seconds)
 		result := fmt.Sprintf("%s: %v", dbusProp, formattedTime)
-		//result = strings.Replace(result, "TimeToFull", "TTF", -1)
+		result = strings.Replace(result, "TimeToFull", "TTF", -1)
 		result = strings.Replace(result, "TimeToEmpty", "TTE", -1)
 		return result, nil
 	}
