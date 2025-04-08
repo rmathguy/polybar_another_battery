@@ -10,14 +10,9 @@ Simple battery charge level watcher with notifications (libnotify)
 - (Run) libnotify
 - (Run) UPower (`-time-to` flag)
 
-# Packages
-
-- [PPA for Ubuntu](https://launchpad.net/~drdeimosnn/+archive/ubuntu/survive-on-wm)
-
 # Build manually
 
 ```
-go get -u github.com/distatus/battery/cmd/battery
 make build
 ```
 
@@ -31,6 +26,8 @@ Usage of ./polybar-ab:
     	Enable debug output to stdout
   -font int
     	Set font numbler for polybar output (default 1)
+  -all
+        Print information for bulk batteries.
   -once
     	Check state and print once
   -polybar
@@ -54,12 +51,13 @@ Add flag `-polybar` for get stdout output in polybar format:
 
 ### Polybar module example
 ```
-[module/custom-battery]
-type = custom/script
-exec = polybar-ab -polybar -thr 10 -font 6 -time-to
-tail = true
+See polybar-part.ini
 ```
 
-# TODO
-- [x] ETA battery life when discharging
-- [ ] Battery health level (based on full/design capacity)
+### TODO
+
+- [ ] Update the -h info in the file to reflect -all changes.
+- [ ] Update the polybar-battery-switcher.sh to allow for swapping between
+    multi and single battery configurations.
+
+- [ ] Fix the issue of duplicate *annoying* notifications of low battery.
