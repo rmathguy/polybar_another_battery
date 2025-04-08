@@ -76,7 +76,7 @@ func main() {
 			}
 
 		var totalCurrent, totalFull float64
-		var all_state bool
+		var all_state bool = false
 		stateCount := make(map[battery.State]int)
 
 		for _, bat := range batteries {
@@ -84,18 +84,8 @@ func main() {
 				totalCurrent += bat.Current
 				totalFull += bat.Full
 				switch bat.State.Raw {
-				case 0:
-					all_state = false
-				case 1:
-					all_state = false
-				case 2:
-					all_state = false
 				case 3:
 					all_state = true
-				case 4:
-					all_state = false
-				default:
-					all_state = false
 				}
 			}
 			stateCount[bat.State]++
