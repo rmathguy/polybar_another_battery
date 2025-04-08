@@ -57,12 +57,27 @@ func main() {
 			}
 
 		var totalCurrent, totalFull float64
+		var all_state bool
 		stateCount := make(map[battery.State]int)
 
 		for _, bat := range batteries {
 			if bat.Full > 0 {
 				totalCurrent += bat.Current
 				totalFull += bat.Full
+				switch bat.State.Raw {
+				case 0:
+					all_state = false
+				case 1:
+					all_state = false
+				case 2:
+					all_state = false
+				case 3:
+					all_state = true
+				case 4:
+					all_state = false
+				default:
+					all_state = false
+				}
 			}
 			stateCount[bat.State]++
 		}
@@ -91,7 +106,11 @@ func main() {
 		}
 
 		if flagpolybar {
-			polybar_out(percent, battery.Discharging, conn) // Use generic state
+			if all_state ==  true {
+				polybar_out(percent, battery.Charging, conn) // Use generic state
+			} else {
+				polybar_out(percent, battery.Discharging, conn) // Use generic state
+			}
 		}
 
 		if percent < float64(flagthr) && state != "Charging" {
